@@ -91,6 +91,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
+    // Since we're using email as the username in auth.ts
     const [user] = await db.select().from(users).where(eq(users.email, username));
     return user;
   }
@@ -119,8 +120,8 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(bloodInventory)
-      .where(gte(bloodInventory.expiryDate, new Date()))
-      .orderBy(bloodInventory.bloodGroup);
+      .where(gte(bloodInventory.expiry_date, new Date()))
+      .orderBy(bloodInventory.blood_group);
   }
 
   async getBloodInventoryByBloodGroup(bloodGroup: string): Promise<BloodInventory[]> {
@@ -130,8 +131,8 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           // Using a string comparison to handle enum values
-          eq(bloodInventory.bloodGroup as any, bloodGroup as any),
-          gte(bloodInventory.expiryDate, new Date())
+          eq(bloodInventory.blood_group as any, bloodGroup as any),
+          gte(bloodInventory.expiry_date, new Date())
         )
       );
   }
@@ -147,7 +148,7 @@ export class DatabaseStorage implements IStorage {
   async updateBloodInventory(id: number, inventoryData: Partial<BloodInventory>): Promise<BloodInventory | undefined> {
     const [updatedInventory] = await db
       .update(bloodInventory)
-      .set({ ...inventoryData, updatedAt: new Date() })
+      .set({ ...inventoryData, updated_at: new Date() })
       .where(eq(bloodInventory.id, id))
       .returning();
     return updatedInventory;
@@ -166,7 +167,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(bloodRequests)
-      .orderBy(desc(bloodRequests.createdAt));
+      .orderBy(desc(bloodRequests.created_at));
   }
 
   async getBloodRequestById(id: number): Promise<BloodRequest | undefined> {
@@ -181,8 +182,8 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(bloodRequests)
-      .where(eq(bloodRequests.patientId, userId))
-      .orderBy(desc(bloodRequests.createdAt));
+      .where(eq(bloodRequests.patient_id, userId))
+      .orderBy(desc(bloodRequests.created_at));
   }
 
   async createBloodRequest(request: InsertBloodRequest): Promise<BloodRequest> {
@@ -196,7 +197,7 @@ export class DatabaseStorage implements IStorage {
   async updateBloodRequest(id: number, requestData: Partial<BloodRequest>): Promise<BloodRequest | undefined> {
     const [updatedRequest] = await db
       .update(bloodRequests)
-      .set({ ...requestData, updatedAt: new Date() })
+      .set({ ...requestData, updated_at: new Date() })
       .where(eq(bloodRequests.id, id))
       .returning();
     return updatedRequest;
@@ -207,15 +208,15 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(bloodDonations)
-      .orderBy(desc(bloodDonations.donationDate));
+      .orderBy(desc(bloodDonations.donation_date));
   }
 
   async getBloodDonationsByDonorId(donorId: number): Promise<BloodDonation[]> {
     return await db
       .select()
       .from(bloodDonations)
-      .where(eq(bloodDonations.donorId, donorId))
-      .orderBy(desc(bloodDonations.donationDate));
+      .where(eq(bloodDonations.donor_id, donorId))
+      .orderBy(desc(bloodDonations.donation_date));
   }
 
   async createBloodDonation(donation: InsertBloodDonation): Promise<BloodDonation> {
@@ -275,8 +276,8 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(eligibilityHistory)
-      .where(eq(eligibilityHistory.userId, userId))
-      .orderBy(desc(eligibilityHistory.checkDate));
+      .where(eq(eligibilityHistory.user_id, userId))
+      .orderBy(desc(eligibilityHistory.check_date));
   }
 }
 

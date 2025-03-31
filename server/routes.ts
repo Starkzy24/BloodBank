@@ -89,7 +89,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Set patient ID if not provided
     const requestData = {
       ...req.body,
-      patientId: req.user.id
+      patient_id: req.user.id
     };
     
     const newRequest = await storage.createBloodRequest(requestData);
@@ -136,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Set donor ID if not provided
     const donationData = {
       ...req.body,
-      donorId: req.user.id
+      donor_id: req.user.id
     };
     
     const newDonation = await storage.createBloodDonation(donationData);
@@ -202,7 +202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Save result if user is authenticated
     if (req.isAuthenticated()) {
       await storage.saveEligibilityCheck({
-        userId: req.user.id,
+        user_id: req.user.id,
         eligible,
         reason: reason || null
       });

@@ -21,53 +21,53 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   age: integer("age").notNull(),
-  bloodGroup: bloodGroupEnum("blood_group").notNull(),
+  blood_group: bloodGroupEnum("blood_group").notNull(),
   role: userRoleEnum("role").notNull(),
   address: text("address"),
   phone: text("phone"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  walletAddress: text("wallet_address"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  wallet_address: text("wallet_address"),
 });
 
 // Blood inventory table
 export const bloodInventory = pgTable("blood_inventory", {
   id: serial("id").primaryKey(),
-  bloodGroup: bloodGroupEnum("blood_group").notNull(),
+  blood_group: bloodGroupEnum("blood_group").notNull(),
   units: integer("units").notNull(),
-  expiryDate: timestamp("expiry_date").notNull(),
-  hospitalId: integer("hospital_id").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  expiry_date: timestamp("expiry_date").notNull(),
+  hospital_id: integer("hospital_id").notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Blood requests table
 export const bloodRequests = pgTable("blood_requests", {
   id: serial("id").primaryKey(),
-  patientId: integer("patient_id").notNull(),
-  patientName: text("patient_name").notNull(),
-  patientAge: integer("patient_age").notNull(),
-  bloodGroup: bloodGroupEnum("blood_group").notNull(),
+  patient_id: integer("patient_id").notNull(),
+  patient_name: text("patient_name").notNull(),
+  patient_age: integer("patient_age").notNull(),
+  blood_group: bloodGroupEnum("blood_group").notNull(),
   units: integer("units").notNull(),
   hospital: text("hospital").notNull(),
   location: text("location").notNull(),
-  requiredDate: timestamp("required_date").notNull(),
+  required_date: timestamp("required_date").notNull(),
   urgency: urgencyLevelEnum("urgency").notNull(),
   reason: text("reason"),
-  contactNumber: text("contact_number").notNull(),
+  contact_number: text("contact_number").notNull(),
   status: requestStatusEnum("status").default("Pending").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Blood donations table
 export const bloodDonations = pgTable("blood_donations", {
   id: serial("id").primaryKey(),
-  donorId: integer("donor_id").notNull(),
-  bloodGroup: bloodGroupEnum("blood_group").notNull(),
+  donor_id: integer("donor_id").notNull(),
+  blood_group: bloodGroupEnum("blood_group").notNull(),
   units: integer("units").notNull(),
-  donationDate: timestamp("donation_date").defaultNow().notNull(),
-  hospitalId: integer("hospital_id").notNull(),
-  txHash: text("tx_hash"),
+  donation_date: timestamp("donation_date").defaultNow().notNull(),
+  hospital_id: integer("hospital_id").notNull(),
+  tx_hash: text("tx_hash"),
   verified: boolean("verified").default(false).notNull(),
 });
 
@@ -80,52 +80,52 @@ export const hospitals = pgTable("hospitals", {
   longitude: text("longitude").notNull(),
   phone: text("phone").notNull(),
   email: text("email"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Eligibility quiz history
 export const eligibilityHistory = pgTable("eligibility_history", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
+  user_id: integer("user_id").notNull(),
   eligible: boolean("eligible").notNull(),
   reason: text("reason"),
-  checkDate: timestamp("check_date").defaultNow().notNull(),
+  check_date: timestamp("check_date").defaultNow().notNull(),
 });
 
 // Create insert schemas using drizzle-zod
 export const insertUserSchema = createInsertSchema(users).omit({ 
   id: true, 
-  createdAt: true, 
-  walletAddress: true 
+  created_at: true, 
+  wallet_address: true 
 });
 
 export const insertBloodInventorySchema = createInsertSchema(bloodInventory).omit({ 
   id: true, 
-  createdAt: true, 
-  updatedAt: true 
+  created_at: true, 
+  updated_at: true 
 });
 
 export const insertBloodRequestSchema = createInsertSchema(bloodRequests).omit({ 
   id: true, 
-  createdAt: true, 
-  updatedAt: true, 
+  created_at: true, 
+  updated_at: true, 
   status: true 
 });
 
 export const insertBloodDonationSchema = createInsertSchema(bloodDonations).omit({ 
   id: true, 
-  txHash: true, 
+  tx_hash: true, 
   verified: true 
 });
 
 export const insertHospitalSchema = createInsertSchema(hospitals).omit({ 
   id: true, 
-  createdAt: true 
+  created_at: true 
 });
 
 export const insertEligibilityHistorySchema = createInsertSchema(eligibilityHistory).omit({ 
   id: true, 
-  checkDate: true 
+  check_date: true 
 });
 
 // Export types
