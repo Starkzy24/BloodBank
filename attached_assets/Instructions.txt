@@ -1,0 +1,196 @@
+Blood Bank Management WebApp - Instruction-Based Prompt
+Technology Stack
+Frontend: React.js (Next.js optional), Tailwind CSS
+
+Backend: Node.js, Express.js, MongoDB
+
+Blockchain: Solidity, Ganache, MetaMask
+
+APIs: Google Maps API for location-based search
+
+Additional Tools: JWT for authentication, bcrypt for password hashing, Recharts for data visualization
+
+1. Project Setup
+Set up a MERN stack project with separate folders for frontend and backend.
+
+Initialize Node.js and create an Express server.
+
+Install required dependencies.
+
+Set up MongoDB connection using Mongoose.
+
+2. Frontend Development
+Navigation Bar
+Add a navigation bar with the following options:
+
+Home
+
+Donor/Patient Registration
+
+Donor/Patient Login
+
+Admin Login
+
+Track Blood Availability
+
+Request Blood
+
+Contact Us
+
+Make it responsive and fixed at the top.
+
+Homepage
+Create a homepage with relevant information about blood donation.
+
+Add buttons linking to registration and blood request pages.
+
+Dark Mode Toggle
+Implement a toggle switch to switch between light and dark mode.
+
+Store user preference in local storage.
+
+Donor/Patient Registration Page
+Use a card-based flip UI to switch between donor and patient registration.
+
+Create a form for users to enter:
+
+Name, Age, Blood Group
+
+Email, Password
+
+Save user role as "donor" or "patient" in the database.
+
+Donor/Patient Login
+Implement JWT authentication for secure login.
+
+Store JWT tokens securely in cookies.
+
+Redirect users to their dashboard after login.
+
+Admin Dashboard
+Secure the admin login with JWT authentication.
+
+Features:
+
+Manage blood inventory (add/update/delete blood stock).
+
+View and approve/reject blood requests.
+
+Manage registered donors and patients.
+
+Add and manage blood banks.
+
+Request Blood Page
+Create a form where users can request blood.
+
+Save blood requests in MongoDB with status (Pending, Approved, Denied).
+
+Allow admins to manage blood requests.
+
+Track Blood Availability Page
+Show a visual representation of available blood stocks.
+
+Use Recharts to display blood type distribution.
+
+Integrate Google Maps API to show the nearest blood banks.
+
+Implement lazy loading to optimize map performance.
+
+Blood Donation Eligibility Checker
+Create a form-based quiz for users to check their eligibility.
+
+Show results indicating eligibility status.
+
+Store quiz history for registered users.
+
+Search & Filter System
+Implement a search feature for filtering blood requests based on:
+
+Blood Type
+
+Location
+
+Urgency
+
+
+
+3. Backend Development
+Express Server Setup
+Create an Express server in index.js.
+
+Enable CORS for frontend-backend communication.
+
+Use dotenv for managing environment variables.
+
+MongoDB Database Setup
+Connect to MongoDB using Mongoose.
+
+Create schemas for:
+
+Users (Donors, Patients, Admins)
+
+Blood Inventory
+
+Blood Requests
+
+Authentication System
+Use bcrypt to hash passwords before storing.
+
+Implement JWT authentication for login and session management.
+
+API Endpoints
+Create RESTful API routes for:
+
+User Registration: POST /register
+
+User Login: POST /login
+
+Get Blood Inventory: GET /inventory
+
+Request Blood: POST /request-blood
+
+Update Request Status (Admin Only): PUT /update-request/:id
+
+4. Blockchain Integration
+Smart Contract for Donation Tracking
+Create a Solidity smart contract that:
+
+Stores donor details.
+
+Tracks each blood donation (date, blood type, quantity).
+
+Allows hospitals to verify past donations.
+
+Deploy Smart Contract
+Use Truffle and Ganache to deploy the contract.
+
+Integrate with MetaMask for user transactions.
+
+Frontend Integration
+Connect MetaMask to the web app.
+
+Allow users to sign transactions and verify past donations.
+
+
+5. Additional Features
+Automated Blood Expiry Alerts
+Set up a cron job in Node.js to check blood expiry dates.
+
+Notify hospitals before blood units expire.
+
+Google Maps Filters
+Allow users to search for blood banks within a specified radius.
+
+
+6. Comments & Documentation
+Add comments in the code to explain each function and API endpoint.
+
+Clearly indicate where API keys need to be added. Example:
+
+js
+Copy
+Edit
+// Insert your Google Maps API Key here  
+const GOOGLE_MAPS_API_KEY = "YOUR_API_KEY_HERE";  
+Provide a README file with setup instructions.
+
