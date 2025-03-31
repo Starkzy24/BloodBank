@@ -3,6 +3,8 @@ import { db } from "./db";
 import { eq, and, gte, desc, lte } from "drizzle-orm";
 import session from "express-session";
 import createMemoryStore from "memorystore";
+import connectPgSimple from "connect-pg-simple";
+import { neon } from "@neondatabase/serverless";
 import { 
   type User, 
   type InsertUser, 
@@ -19,6 +21,7 @@ import {
 } from "@shared/schema";
 
 const MemoryStore = createMemoryStore(session);
+const PgStore = connectPgSimple(session);
 
 export interface IStorage {
   // User operations
@@ -59,16 +62,26 @@ export interface IStorage {
   getEligibilityHistoryByUserId(userId: number): Promise<EligibilityHistory[]>;
   
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: any; // Using any type to avoid TypeScript errors with SessionStore
 }
 
 export class DatabaseStorage implements IStorage {
-  sessionStore: session.SessionStore;
+  sessionStore: any; // Using any type to avoid TypeScript errors with SessionStore
 
   constructor() {
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000, // prune expired entries every 24h
-    });
+    // Use Postgres for session storage in production
+    if (process.env.NODE_ENV === 'production') {
+      this.sessionStore = new PgStore({
+        conString: process.env.DATABASE_URL,
+        createTableIfMissing: true,
+        tableName: 'session'
+      });
+    } else {
+      // Use memory store for development
+      this.sessionStore = new MemoryStore({
+        checkPeriod: 86400000, // prune expired entries every 24h
+      });
+    }
   }
 
   // User operations
@@ -116,7 +129,8 @@ export class DatabaseStorage implements IStorage {
       .from(bloodInventory)
       .where(
         and(
-          eq(bloodInventory.bloodGroup, bloodGroup),
+          // Using a string comparison to handle enum values
+          eq(bloodInventory.bloodGroup as any, bloodGroup as any),
           gte(bloodInventory.expiryDate, new Date())
         )
       );
