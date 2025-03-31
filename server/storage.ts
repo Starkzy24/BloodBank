@@ -2,7 +2,7 @@ import { users, bloodInventory, bloodRequests, bloodDonations, hospitals, eligib
 import { db, pool } from "./db";
 import { eq, and, gte, desc, lte } from "drizzle-orm";
 import session from "express-session";
-import connectPg from "connect-pg-simple";
+import createMemoryStore from "memorystore";
 import { 
   type User, 
   type InsertUser, 
@@ -18,8 +18,8 @@ import {
   type InsertEligibilityHistory
 } from "@shared/schema";
 
-// Setup PostgreSQL session store to maintain user sessions in the database
-const PostgresSessionStore = connectPg(session);
+// Create a memory store for session management to avoid PostgreSQL compatibility issues
+const MemoryStore = createMemoryStore(session);
 
 export interface IStorage {
   // User operations
@@ -68,12 +68,9 @@ export class DatabaseStorage implements IStorage {
   sessionStore: any; // Using any type to avoid TypeScript errors with SessionStore
 
   constructor() {
-    // Use PostgreSQL session store
-    this.sessionStore = new PostgresSessionStore({
-      pool: pool,
-      createTableIfMissing: true,
-      tableName: 'session',
-      schemaName: 'public'
+    // Use memory store instead of PostgreSQL store to avoid client.query issues
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // Clear expired sessions every 24h
     });
   }
 
