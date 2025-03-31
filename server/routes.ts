@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { setupBlockchainRoutes } from "./blockchain";
 import { bloodGroupEnum, userRoleEnum } from "@shared/schema";
+import { users } from "./auth";
 
 // Sample data
 const bloodInventory = [
@@ -24,8 +25,7 @@ const eligibilityHistory = [];
 function getUserFromSession(req: Request) {
   if (!req.session.userId) return null;
   
-  // Import users array from auth module
-  const { users } = require('./auth');
+  // Get user from imported users array
   return users.find(user => user.id === req.session.userId);
 }
 
@@ -98,6 +98,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Blood request routes
   app.get("/api/blood-requests", isAuthenticated, (req, res) => {
     const user = getUserFromSession(req);
+    
+    // Safety check - user should always exist due to isAuthenticated middleware
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
     let requests = [];
     
     if (user.role === "admin") {
@@ -111,6 +117,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/blood-requests", isAuthenticated, (req, res) => {
     const user = getUserFromSession(req);
+    
+    // Safety check - user should always exist due to isAuthenticated middleware
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
     
     const newRequest = {
       id: bloodRequests.length + 1,
@@ -146,6 +157,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Blood donation routes
   app.get("/api/blood-donations", isAuthenticated, (req, res) => {
     const user = getUserFromSession(req);
+    
+    // Safety check - user should always exist due to isAuthenticated middleware
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
     let donations = [];
     
     if (user.role === "admin") {
@@ -159,6 +176,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/blood-donations", isAuthenticated, checkRole('donor'), (req, res) => {
     const user = getUserFromSession(req);
+    
+    // Safety check - user should always exist due to isAuthenticated middleware
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
     
     const newDonation = {
       id: bloodDonations.length + 1,
@@ -242,6 +264,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/eligibility-history", isAuthenticated, (req, res) => {
     const user = getUserFromSession(req);
+    
+    // Safety check - user should always exist due to isAuthenticated middleware
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
     const history = eligibilityHistory.filter(check => check.user_id === user.id);
     res.json(history);
   });

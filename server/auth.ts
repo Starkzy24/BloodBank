@@ -86,10 +86,10 @@ export function setupAuth(app: Express) {
 
   // Register route
   app.post('/api/register', (req: Request, res: Response) => {
-    const { name, email, password, age, blood_group, role, address, phone } = req.body;
+    const { name, email, password, role } = req.body;
 
-    // Check if all required fields are provided
-    if (!name || !email || !password || !age || !blood_group || !role) {
+    // Only check basic required fields
+    if (!name || !email || !password || !role) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
@@ -99,17 +99,17 @@ export function setupAuth(app: Express) {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
-    // Create new user
+    // Create new user with default values for missing fields
     const newUser = {
       id: users.length + 1,
       name,
       email,
       password: hashPassword(password),
-      age,
-      blood_group,
+      age: req.body.age || 30,
+      blood_group: req.body.blood_group || 'O+',
       role,
-      address: address || '',
-      phone: phone || '',
+      address: req.body.address || '',
+      phone: req.body.phone || '',
       created_at: new Date(),
       wallet_address: null
     };
