@@ -322,6 +322,155 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const history = eligibilityHistory.filter(check => check.user_id === user.id);
     res.json(history);
   });
+  
+  // Admin routes for user statistics
+  app.get("/api/admin/users", isAuthenticated, checkRole('admin'), (req, res) => {
+    // Count users by role
+    const totalUsers = users.length;
+    const donors = users.filter(user => user.role === 'donor').length;
+    const patients = users.filter(user => user.role === 'patient').length;
+    const admins = users.filter(user => user.role === 'admin').length;
+    
+    // Group donors by blood type
+    const donorsByBloodType = users
+      .filter(user => user.role === 'donor')
+      .reduce((acc, user) => {
+        const group = user.blood_group;
+        acc[group] = (acc[group] || 0) + 1;
+        return acc;
+      }, {});
+    
+    // Return user stats
+    res.json({
+      total: totalUsers,
+      byRole: {
+        donors,
+        patients,
+        admins
+      },
+      donorsByBloodType
+    });
+  });
+  
+  // Get filtered list of donors
+  app.get("/api/admin/donors", isAuthenticated, checkRole('admin'), (req, res) => {
+    const { bloodType, location } = req.query;
+    
+    let filteredDonors = users.filter(user => user.role === 'donor');
+    
+    // Apply blood type filter if provided
+    if (bloodType) {
+      filteredDonors = filteredDonors.filter(user => user.blood_group === bloodType);
+    }
+    
+    // Apply location filter if provided (simple substring match for demo)
+    if (location) {
+      filteredDonors = filteredDonors.filter(user => 
+        user.address && user.address.toLowerCase().includes(location.toString().toLowerCase())
+      );
+    }
+    
+    // Remove passwords before sending
+    const donorsData = filteredDonors.map(donor => {
+      const { password, ...donorData } = donor;
+      return donorData;
+    });
+    
+    res.json(donorsData);
+  });
+  
+  // Enhanced inventory API with expiry date sorting and critical level information
+  app.get("/api/admin/inventory", isAuthenticated, checkRole('admin'), (req, res) => {
+    const { bloodGroup, hospital } = req.query;
+    
+    let filteredInventory = [...bloodInventory];
+    
+    // Apply blood group filter if provided
+    if (bloodGroup) {
+      filteredInventory = filteredInventory.filter(item => item.blood_group === bloodGroup);
+    }
+    
+    // Apply hospital filter if provided
+    if (hospital) {
+      const hospitalId = parseInt(hospital.toString());
+      filteredInventory = filteredInventory.filter(item => item.hospital_id === hospitalId);
+    }
+    
+    // Sort by expiry date (oldest first)
+    filteredInventory.sort((a, b) => new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime());
+    
+    // Add critical level flags
+    const today = new Date();
+    const threeDaysFromNow = new Date(today);
+    threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+    
+    // Define thresholds for critical levels
+    const criticalThresholds = {
+      "A+": 5,
+      "A-": 3,
+      "B+": 5,
+      "B-": 3,
+      "AB+": 2,
+      "AB-": 2,
+      "O+": 10,
+      "O-": 5
+    };
+    
+    // Calculate total units per blood group
+    const totalByBloodGroup = filteredInventory.reduce((acc, item) => {
+      acc[item.blood_group] = (acc[item.blood_group] || 0) + item.units;
+      return acc;
+    }, {});
+    
+    // Enhanced inventory with flags
+    const enhancedInventory = filteredInventory.map(item => {
+      const expiryDate = new Date(item.expiry_date);
+      return {
+        ...item,
+        is_expiring_soon: expiryDate <= threeDaysFromNow,
+        days_to_expiry: Math.floor((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      };
+    });
+    
+    // Generate critical alerts
+    const criticalAlerts = [];
+    
+    Object.entries(totalByBloodGroup).forEach(([group, total]) => {
+      const threshold = criticalThresholds[group] || 5;
+      if (total < threshold) {
+        criticalAlerts.push({
+          blood_group: group,
+          units: total,
+          threshold: threshold,
+          message: `Critical Shortage: Only ${total} units of ${group} blood available!`
+        });
+      }
+    });
+    
+    // Find expiring items
+    const expiringItems = enhancedInventory
+      .filter(item => item.is_expiring_soon)
+      .map(item => ({
+        id: item.id,
+        blood_group: item.blood_group,
+        units: item.units,
+        days_to_expiry: item.days_to_expiry,
+        hospital_id: item.hospital_id,
+        message: `${item.units} units of ${item.blood_group} expiring in ${item.days_to_expiry} days!`
+      }));
+    
+    res.json({
+      inventory: enhancedInventory,
+      stats: {
+        total_units: filteredInventory.reduce((sum, item) => sum + item.units, 0),
+        by_blood_group: totalByBloodGroup
+      },
+      alerts: {
+        critical_shortages: criticalAlerts,
+        expiring_soon: expiringItems
+      }
+    });
+  });
 
   const httpServer = createServer(app);
   return httpServer;
