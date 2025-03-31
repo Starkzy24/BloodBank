@@ -1,8 +1,8 @@
 import { users, bloodInventory, bloodRequests, bloodDonations, hospitals, eligibilityHistory } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, and, gte, desc, lte } from "drizzle-orm";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import connectPg from "connect-pg-simple";
 import { 
   type User, 
   type InsertUser, 
@@ -18,10 +18,8 @@ import {
   type InsertEligibilityHistory
 } from "@shared/schema";
 
-// Create a memory store for session management
-// We're explicitly using memory store instead of PostgreSQL session store due to 
-// compatibility issues with Neon serverless connections
-const MemoryStore = createMemoryStore(session);
+// Setup PostgreSQL session store to maintain user sessions in the database
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
   // User operations
@@ -70,9 +68,12 @@ export class DatabaseStorage implements IStorage {
   sessionStore: any; // Using any type to avoid TypeScript errors with SessionStore
 
   constructor() {
-    // For simplicity, use memory store with Neon serverless
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000 // Clear expired sessions every 24h
+    // Use PostgreSQL session store
+    this.sessionStore = new PostgresSessionStore({
+      pool: pool,
+      createTableIfMissing: true,
+      tableName: 'session',
+      schemaName: 'public'
     });
   }
 
