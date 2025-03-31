@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -68,12 +68,17 @@ const RequestBloodPage = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   
+  // Fetch hospitals for dropdown
+  const { data: hospitals = [], isLoading: hospitalsLoading } = useQuery({
+    queryKey: ["/api/hospitals"],
+  });
+  
   const form = useForm<RequestBloodFormValues>({
     resolver: zodResolver(requestBloodFormSchema),
     defaultValues: {
       patientName: user?.role === "patient" ? user.name : "",
       patientAge: user?.role === "patient" ? user.age : undefined,
-      bloodGroup: user?.role === "patient" ? user.bloodGroup : undefined,
+      bloodGroup: user?.role === "patient" ? user.blood_group : undefined,
       units: 1,
       hospital: "",
       location: "",
@@ -211,9 +216,46 @@ const RequestBloodPage = () => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Hospital Name *</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
+                          <Select
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              // Auto-fill location when hospital is selected
+                              const selectedHospital = hospitals.find((h: any) => h.name === value);
+                              if (selectedHospital) {
+                                form.setValue("location", selectedHospital.address);
+                              }
+                            }}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select Hospital" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {hospitalsLoading ? (
+                                <div className="flex items-center justify-center p-4">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                </div>
+                              ) : hospitals.length === 0 ? (
+                                <div className="p-2 text-sm text-center text-muted-foreground">
+                                  No hospitals found
+                                </div>
+                              ) : (
+                                hospitals.map((hospital: any) => (
+                                  <SelectItem 
+                                    key={hospital.id} 
+                                    value={hospital.name}
+                                  >
+                                    {hospital.name}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Select a hospital from our registered facilities
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -226,8 +268,11 @@ const RequestBloodPage = () => {
                         <FormItem>
                           <FormLabel>Hospital Location *</FormLabel>
                           <FormControl>
-                            <Input {...field} />
+                            <Input {...field} readOnly className="bg-muted cursor-not-allowed" />
                           </FormControl>
+                          <FormDescription>
+                            Auto-filled based on selected hospital
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}

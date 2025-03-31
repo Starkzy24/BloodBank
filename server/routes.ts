@@ -211,6 +211,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(hospitals);
   });
   
+  app.get("/api/hospitals/:id", (req, res) => {
+    const id = parseInt(req.params.id);
+    const hospital = hospitals.find(h => h.id === id);
+    
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+    
+    res.json(hospital);
+  });
+  
   app.post("/api/hospitals", isAuthenticated, checkRole('admin'), (req, res) => {
     const newHospital = {
       id: hospitals.length + 1,
@@ -220,6 +231,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     hospitals.push(newHospital);
     res.status(201).json(newHospital);
+  });
+  
+  app.put("/api/hospitals/:id", isAuthenticated, checkRole('admin'), (req, res) => {
+    const id = parseInt(req.params.id);
+    const hospitalIndex = hospitals.findIndex(h => h.id === id);
+    
+    if (hospitalIndex === -1) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+    
+    const updatedHospital = {
+      ...hospitals[hospitalIndex],
+      ...req.body,
+      id: id // ensure the ID doesn't change
+    };
+    
+    hospitals[hospitalIndex] = updatedHospital;
+    res.json(updatedHospital);
+  });
+  
+  app.delete("/api/hospitals/:id", isAuthenticated, checkRole('admin'), (req, res) => {
+    const id = parseInt(req.params.id);
+    const hospitalIndex = hospitals.findIndex(h => h.id === id);
+    
+    if (hospitalIndex === -1) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+    
+    // Check if this hospital is referenced by any blood inventory
+    const isReferenced = bloodInventory.some(item => item.hospital_id === id);
+    if (isReferenced) {
+      return res.status(400).json({ 
+        message: "Cannot delete hospital that has blood inventory associated with it" 
+      });
+    }
+    
+    hospitals.splice(hospitalIndex, 1);
+    res.status(204).end();
   });
   
   // Eligibility checker routes

@@ -4,8 +4,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import BloodStockChart from "@/components/BloodStockChart";
 import AdminInventoryManager from "@/components/dashboards/AdminInventoryManager";
+import HospitalManager from "@/components/dashboards/HospitalManager";
 import RequestList from "@/components/blood-requests/RequestList";
-import { Loader2 } from "lucide-react";
+import { Loader2, Droplets, Building2, Users } from "lucide-react";
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -53,20 +54,7 @@ const AdminDashboard = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{pendingRequestsCount}</div>
@@ -78,18 +66,7 @@ const AdminDashboard = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Blood Units Available</CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <path d="M12 2v20M2 12h20" />
-            </svg>
+            <Droplets className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalInventoryUnits}</div>
@@ -101,18 +78,7 @@ const AdminDashboard = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Blood Banks</CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-            </svg>
+            <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{hospitalCount}</div>
@@ -125,9 +91,10 @@ const AdminDashboard = () => {
 
       {/* Main Tabs */}
       <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 md:w-auto md:grid-cols-none md:flex">
+        <TabsList className="grid w-full grid-cols-4 md:w-auto md:grid-cols-none md:flex">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="inventory">Inventory Management</TabsTrigger>
+          <TabsTrigger value="hospitals">Hospitals & Blood Banks</TabsTrigger>
           <TabsTrigger value="requests">Blood Requests</TabsTrigger>
         </TabsList>
         
@@ -161,6 +128,11 @@ const AdminDashboard = () => {
         {/* Inventory Management Tab */}
         <TabsContent value="inventory" className="mt-6">
           <AdminInventoryManager />
+        </TabsContent>
+        
+        {/* Hospitals Management Tab */}
+        <TabsContent value="hospitals" className="mt-6">
+          <HospitalManager />
         </TabsContent>
         
         {/* Blood Requests Tab */}
