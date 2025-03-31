@@ -1,181 +1,207 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { setupBlockchainRoutes } from "./blockchain";
-import { bloodInventory, BloodRequest, BloodDonation } from "@shared/schema";
-import { eq, desc, and, gte } from "drizzle-orm";
+import { bloodGroupEnum, userRoleEnum } from "@shared/schema";
 
-// Helper function to wrap route handlers with try-catch
-const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<any>) => 
-  (req: Request, res: Response, next: NextFunction) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-  };
+// Sample data
+const bloodInventory = [
+  { id: 1, blood_group: "A+", units: 50, expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), hospital_id: 1, created_at: new Date(), updated_at: new Date() },
+  { id: 2, blood_group: "O+", units: 30, expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), hospital_id: 1, created_at: new Date(), updated_at: new Date() },
+  { id: 3, blood_group: "B-", units: 15, expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), hospital_id: 2, created_at: new Date(), updated_at: new Date() }
+];
+
+const hospitals = [
+  { id: 1, name: "City General Hospital", address: "123 Hospital Ave, City, Country", latitude: "40.7128", longitude: "-74.0060", phone: "+1234567890", email: "contact@citygeneral.com", created_at: new Date() },
+  { id: 2, name: "Community Medical Center", address: "456 Medical Blvd, City, Country", latitude: "40.7300", longitude: "-73.9950", phone: "+1987654321", email: "info@communitymedical.org", created_at: new Date() }
+];
+
+const bloodRequests = [];
+const bloodDonations = [];
+const eligibilityHistory = [];
+
+// Helper function to get user from session
+function getUserFromSession(req: Request) {
+  if (!req.session.userId) return null;
+  
+  // Import users array from auth module
+  const { users } = require('./auth');
+  return users.find(user => user.id === req.session.userId);
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Set up authentication routes
-  setupAuth(app);
+  // Set up authentication routes and get isAuthenticated middleware
+  const { isAuthenticated } = setupAuth(app);
   
   // Set up blockchain routes
   setupBlockchainRoutes(app);
   
+  // Check role middleware
+  const checkRole = (role: string) => (req: Request, res: Response, next: NextFunction) => {
+    const user = getUserFromSession(req);
+    if (!user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    if (user.role !== role) {
+      return res.status(403).json({ message: `${role.charAt(0).toUpperCase() + role.slice(1)} access required` });
+    }
+    next();
+  };
+  
   // Blood inventory routes
-  app.get("/api/blood-inventory", asyncHandler(async (req, res) => {
-    const inventory = await storage.getBloodInventory();
-    res.json(inventory);
-  }));
+  app.get("/api/blood-inventory", (req, res) => {
+    res.json(bloodInventory);
+  });
   
-  app.post("/api/blood-inventory", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
-      return res.status(403).json({ message: "Admin access required" });
-    }
+  app.post("/api/blood-inventory", isAuthenticated, checkRole('admin'), (req, res) => {
+    const newInventory = {
+      id: bloodInventory.length + 1,
+      ...req.body,
+      created_at: new Date(),
+      updated_at: new Date()
+    };
     
-    const newInventory = await storage.createBloodInventory(req.body);
+    bloodInventory.push(newInventory);
     res.status(201).json(newInventory);
-  }));
+  });
   
-  app.put("/api/blood-inventory/:id", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
-      return res.status(403).json({ message: "Admin access required" });
-    }
-    
+  app.put("/api/blood-inventory/:id", isAuthenticated, checkRole('admin'), (req, res) => {
     const id = parseInt(req.params.id);
-    const updatedInventory = await storage.updateBloodInventory(id, req.body);
+    const inventoryIndex = bloodInventory.findIndex(item => item.id === id);
     
-    if (!updatedInventory) {
+    if (inventoryIndex === -1) {
       return res.status(404).json({ message: "Blood inventory not found" });
     }
     
+    const updatedInventory = {
+      ...bloodInventory[inventoryIndex],
+      ...req.body,
+      updated_at: new Date()
+    };
+    
+    bloodInventory[inventoryIndex] = updatedInventory;
     res.json(updatedInventory);
-  }));
+  });
   
-  app.delete("/api/blood-inventory/:id", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
-      return res.status(403).json({ message: "Admin access required" });
-    }
-    
+  app.delete("/api/blood-inventory/:id", isAuthenticated, checkRole('admin'), (req, res) => {
     const id = parseInt(req.params.id);
-    const success = await storage.deleteBloodInventory(id);
+    const inventoryIndex = bloodInventory.findIndex(item => item.id === id);
     
-    if (!success) {
+    if (inventoryIndex === -1) {
       return res.status(404).json({ message: "Blood inventory not found" });
     }
     
+    bloodInventory.splice(inventoryIndex, 1);
     res.status(204).end();
-  }));
+  });
   
   // Blood request routes
-  app.get("/api/blood-requests", asyncHandler(async (req, res) => {
-    // If admin, return all requests
-    // If patient, return only their requests
-    let requests: BloodRequest[] = [];
+  app.get("/api/blood-requests", isAuthenticated, (req, res) => {
+    const user = getUserFromSession(req);
+    let requests = [];
     
-    if (req.isAuthenticated()) {
-      if (req.user.role === "admin") {
-        requests = await storage.getBloodRequests();
-      } else {
-        requests = await storage.getBloodRequestsByUserId(req.user.id);
-      }
+    if (user.role === "admin") {
+      requests = bloodRequests;
+    } else {
+      requests = bloodRequests.filter(request => request.patient_id === user.id);
     }
     
     res.json(requests);
-  }));
+  });
   
-  app.post("/api/blood-requests", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Authentication required" });
-    }
+  app.post("/api/blood-requests", isAuthenticated, (req, res) => {
+    const user = getUserFromSession(req);
     
-    // Set patient ID if not provided
-    const requestData = {
+    const newRequest = {
+      id: bloodRequests.length + 1,
       ...req.body,
-      patient_id: req.user.id
+      patient_id: user.id,
+      status: "Pending",
+      created_at: new Date(),
+      updated_at: new Date()
     };
     
-    const newRequest = await storage.createBloodRequest(requestData);
+    bloodRequests.push(newRequest);
     res.status(201).json(newRequest);
-  }));
+  });
   
-  app.put("/api/blood-requests/:id", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
-      return res.status(403).json({ message: "Admin access required" });
-    }
-    
+  app.put("/api/blood-requests/:id", isAuthenticated, checkRole('admin'), (req, res) => {
     const id = parseInt(req.params.id);
-    const updatedRequest = await storage.updateBloodRequest(id, req.body);
+    const requestIndex = bloodRequests.findIndex(request => request.id === id);
     
-    if (!updatedRequest) {
+    if (requestIndex === -1) {
       return res.status(404).json({ message: "Blood request not found" });
     }
     
+    const updatedRequest = {
+      ...bloodRequests[requestIndex],
+      ...req.body,
+      updated_at: new Date()
+    };
+    
+    bloodRequests[requestIndex] = updatedRequest;
     res.json(updatedRequest);
-  }));
+  });
   
   // Blood donation routes
-  app.get("/api/blood-donations", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Authentication required" });
-    }
+  app.get("/api/blood-donations", isAuthenticated, (req, res) => {
+    const user = getUserFromSession(req);
+    let donations = [];
     
-    let donations: BloodDonation[] = [];
-    
-    if (req.user.role === "admin") {
-      donations = await storage.getBloodDonations();
-    } else if (req.user.role === "donor") {
-      donations = await storage.getBloodDonationsByDonorId(req.user.id);
+    if (user.role === "admin") {
+      donations = bloodDonations;
+    } else if (user.role === "donor") {
+      donations = bloodDonations.filter(donation => donation.donor_id === user.id);
     }
     
     res.json(donations);
-  }));
+  });
   
-  app.post("/api/blood-donations", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "donor") {
-      return res.status(403).json({ message: "Donor access required" });
-    }
+  app.post("/api/blood-donations", isAuthenticated, checkRole('donor'), (req, res) => {
+    const user = getUserFromSession(req);
     
-    // Set donor ID if not provided
-    const donationData = {
+    const newDonation = {
+      id: bloodDonations.length + 1,
       ...req.body,
-      donor_id: req.user.id
+      donor_id: user.id,
+      donation_date: new Date(),
+      created_at: new Date(),
+      updated_at: new Date()
     };
     
-    const newDonation = await storage.createBloodDonation(donationData);
+    bloodDonations.push(newDonation);
     res.status(201).json(newDonation);
-  }));
+  });
   
   // Hospital routes
-  app.get("/api/hospitals", asyncHandler(async (req, res) => {
-    const hospitals = await storage.getHospitals();
+  app.get("/api/hospitals", (req, res) => {
     res.json(hospitals);
-  }));
+  });
   
-  app.get("/api/hospitals/nearby", asyncHandler(async (req, res) => {
+  app.get("/api/hospitals/nearby", (req, res) => {
     const { lat, lng, radius = 10 } = req.query;
     
     if (!lat || !lng) {
       return res.status(400).json({ message: "Latitude and longitude are required" });
     }
     
-    const hospitals = await storage.getNearbyHospitals(
-      parseFloat(lat as string),
-      parseFloat(lng as string),
-      parseFloat(radius as string)
-    );
-    
+    // Simple implementation - in a real app would use geographical calculations
     res.json(hospitals);
-  }));
+  });
   
-  app.post("/api/hospitals", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
-      return res.status(403).json({ message: "Admin access required" });
-    }
+  app.post("/api/hospitals", isAuthenticated, checkRole('admin'), (req, res) => {
+    const newHospital = {
+      id: hospitals.length + 1,
+      ...req.body,
+      created_at: new Date()
+    };
     
-    const newHospital = await storage.createHospital(req.body);
+    hospitals.push(newHospital);
     res.status(201).json(newHospital);
-  }));
+  });
   
   // Eligibility checker routes
-  app.post("/api/eligibility-check", asyncHandler(async (req, res) => {
+  app.post("/api/eligibility-check", (req, res) => {
     const { age, weight, recentIllness, recentSurgery, medications } = req.body;
     
     // Simple eligibility check logic
@@ -200,25 +226,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     // Save result if user is authenticated
-    if (req.isAuthenticated()) {
-      await storage.saveEligibilityCheck({
-        user_id: req.user.id,
+    const user = getUserFromSession(req);
+    if (user) {
+      eligibilityHistory.push({
+        id: eligibilityHistory.length + 1,
+        user_id: user.id,
         eligible,
-        reason: reason || null
+        reason: reason || null,
+        check_date: new Date()
       });
     }
     
     res.json({ eligible, reason });
-  }));
+  });
   
-  app.get("/api/eligibility-history", asyncHandler(async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Authentication required" });
-    }
-    
-    const history = await storage.getEligibilityHistoryByUserId(req.user.id);
+  app.get("/api/eligibility-history", isAuthenticated, (req, res) => {
+    const user = getUserFromSession(req);
+    const history = eligibilityHistory.filter(check => check.user_id === user.id);
     res.json(history);
-  }));
+  });
 
   const httpServer = createServer(app);
   return httpServer;
