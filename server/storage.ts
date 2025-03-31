@@ -18,6 +18,9 @@ import {
   type InsertEligibilityHistory
 } from "@shared/schema";
 
+// Create a memory store for session management
+// We're explicitly using memory store instead of PostgreSQL session store due to 
+// compatibility issues with Neon serverless connections
 const MemoryStore = createMemoryStore(session);
 
 export interface IStorage {
