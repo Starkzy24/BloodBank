@@ -5,6 +5,15 @@ import { Contract } from "web3-eth-contract";
 import { AbiItem } from "web3-utils";
 import { bloodDonations } from "@shared/schema";
 import contractInfo from './contracts/compile.js';
+import { users } from "./auth";
+import { Session } from 'express-session';
+
+// Add session property to Express Request
+declare module 'express-session' {
+  interface Session {
+    userId?: number;
+  }
+}
 
 // Setup Web3 provider - this is configured to work with Ganache
 // In a production environment, you would use Infura, Alchemy, or your own Ethereum node
@@ -131,7 +140,9 @@ export function setupBlockchainRoutes(app: Express) {
 
   // Deploy contract (admin only)
   app.post("/api/blockchain/deploy", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated() || req.user.role !== "admin") {
+    // Get user from session
+    const user = users.find(u => u.id === req.session.userId);
+    if (!user || user.role !== "admin") {
       return res.status(403).json({ 
         success: false, 
         message: "Admin access required" 
@@ -152,14 +163,16 @@ export function setupBlockchainRoutes(app: Express) {
 
   // Record a donation on the blockchain
   app.post("/api/blockchain/record-donation", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) {
+    // Get user from session
+    const user = users.find(u => u.id === req.session.userId);
+    if (!user) {
       return res.status(401).json({ 
         success: false, 
         message: "Authentication required" 
       });
     }
     
-    if (req.user.role !== "donor") {
+    if (user.role !== "donor") {
       return res.status(403).json({ 
         success: false, 
         message: "Donor access required" 
@@ -199,7 +212,7 @@ export function setupBlockchainRoutes(app: Express) {
       const accounts = await web3.eth.getAccounts();
       const result = await contract.methods.recordDonation(
         donationId,
-        req.user.id.toString(),
+        user.id.toString(),
         bloodGroup,
         units,
         Math.floor(Date.now() / 1000), // Current timestamp in seconds
@@ -298,7 +311,9 @@ export function setupBlockchainRoutes(app: Express) {
 
   // Verify a donation (admin/hospital only)
   app.post("/api/blockchain/verify-donation/:id", async (req: Request, res: Response) => {
-    if (!req.isAuthenticated() || (req.user.role !== "admin" && req.user.role !== "hospital")) {
+    // Get user from session
+    const user = users.find(u => u.id === req.session.userId);
+    if (!user || (user.role !== "admin" && user.role !== "hospital")) {
       return res.status(403).json({ 
         success: false, 
         message: "Admin or hospital access required" 
