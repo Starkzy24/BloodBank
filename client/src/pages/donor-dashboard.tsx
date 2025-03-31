@@ -8,6 +8,8 @@ import { Loader2 } from "lucide-react";
 import DonorHistoryCard from "@/components/dashboards/DonorHistoryCard";
 import DonationManager from "@/components/dashboards/DonationManager";
 import MetaMaskConnector from "@/components/blockchain/MetaMaskConnector";
+import DonationRecorder from "@/components/blockchain/DonationRecorder";
+import { BlockchainDashboard } from "@/components/blockchain/BlockchainDashboard";
 
 const DonorDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -17,8 +19,10 @@ const DonorDashboard = () => {
     queryKey: ["/api/blood-donations"],
   });
   
-  const totalDonations = donations?.length || 0;
-  const verifiedDonations = donations?.filter((donation: any) => donation.verified)?.length || 0;
+  const totalDonations = donations && Array.isArray(donations) ? donations.length : 0;
+  const verifiedDonations = donations && Array.isArray(donations) 
+    ? donations.filter((donation: any) => donation.verified).length 
+    : 0;
 
   if (donationsLoading) {
     return (
@@ -43,15 +47,15 @@ const DonorDashboard = () => {
               <h2 className="text-xl font-bold">{user?.name}</h2>
               <div className="flex flex-wrap gap-2 justify-center md:justify-start mt-2">
                 <Badge variant="outline">{user?.email}</Badge>
-                <Badge className="bg-primary">{user?.bloodGroup}</Badge>
+                <Badge className="bg-primary">{user?.blood_group}</Badge>
                 <Badge variant="secondary">Donor</Badge>
               </div>
             </div>
             <div className="ml-auto flex-shrink-0 hidden md:block">
               <div className="text-sm text-muted-foreground mb-1">Wallet Address:</div>
               <div className="truncate max-w-xs">
-                {user?.walletAddress ? 
-                  user.walletAddress : 
+                {user?.wallet_address ? 
+                  user.wallet_address : 
                   <span className="text-yellow-600">Not connected</span>
                 }
               </div>
@@ -129,8 +133,8 @@ const DonorDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {donations && donations.length > 0 
-                ? new Date(donations[0].donationDate).toLocaleDateString() 
+              {donations && Array.isArray(donations) && donations.length > 0 && donations[0]?.donation_date
+                ? new Date(donations[0].donation_date).toLocaleDateString() 
                 : "Never"}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -142,10 +146,11 @@ const DonorDashboard = () => {
 
       {/* Main Tabs */}
       <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 md:w-auto md:grid-cols-none md:flex">
+        <TabsList className="grid w-full grid-cols-4 md:w-auto md:grid-cols-none md:flex">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="donate">Record Donation</TabsTrigger>
-          <TabsTrigger value="wallet">Blockchain Wallet</TabsTrigger>
+          <TabsTrigger value="blockchain">Blockchain</TabsTrigger>
+          <TabsTrigger value="wallet">Wallet</TabsTrigger>
         </TabsList>
         
         {/* Overview Tab */}
@@ -158,7 +163,7 @@ const DonorDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <DonorHistoryCard donations={donations || []} />
+              <DonorHistoryCard donations={Array.isArray(donations) ? donations : []} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -166,6 +171,23 @@ const DonorDashboard = () => {
         {/* Donate Tab */}
         <TabsContent value="donate" className="mt-6">
           <DonationManager />
+        </TabsContent>
+        
+        {/* Blockchain Tab */}
+        <TabsContent value="blockchain" className="mt-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Record Donation on Blockchain</CardTitle>
+              <CardDescription>
+                Verify and permanently record your blood donation on the blockchain 
+                for increased transparency and traceability
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DonationRecorder donation={null} />
+            </CardContent>
+          </Card>
+          <BlockchainDashboard />
         </TabsContent>
         
         {/* Wallet Tab */}

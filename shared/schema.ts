@@ -67,8 +67,10 @@ export const bloodDonations = pgTable("blood_donations", {
   units: integer("units").notNull(),
   donation_date: timestamp("donation_date").defaultNow().notNull(),
   hospital_id: integer("hospital_id").notNull(),
+  hospital_name: text("hospital_name"),
   tx_hash: text("tx_hash"),
   verified: boolean("verified").default(false).notNull(),
+  blockchain_verified: boolean("blockchain_verified").default(false).notNull(),
 });
 
 // Hospitals/Blood banks table
@@ -115,7 +117,9 @@ export const insertBloodRequestSchema = createInsertSchema(bloodRequests).omit({
 export const insertBloodDonationSchema = createInsertSchema(bloodDonations).omit({ 
   id: true, 
   tx_hash: true, 
-  verified: true 
+  verified: true,
+  blockchain_verified: true,
+  hospital_name: true
 });
 
 export const insertHospitalSchema = createInsertSchema(hospitals).omit({ 

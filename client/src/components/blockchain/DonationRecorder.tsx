@@ -1,209 +1,286 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest, queryClient } from '@/lib/queryClient';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, AlertTriangle, Check } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, AlertTriangle, ArrowRight, CheckCircle2 } from "lucide-react";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose
+} from "@/components/ui/dialog";
+import { useAuth } from '@/hooks/use-auth';
 
 interface DonationRecorderProps {
-  donation: any;
+  donation: any | null;
 }
 
-const DonationRecorder: React.FC<DonationRecorderProps> = ({ donation }) => {
+const DonationRecorder = ({ donation }: DonationRecorderProps) => {
+  const { user } = useAuth();
   const { toast } = useToast();
-  const [transactionHash, setTransactionHash] = useState<string | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [walletAddress, setWalletAddress] = useState(user?.wallet_address || '');
+  const [manualDonationId, setManualDonationId] = useState('');
+  const [manualBloodGroup, setManualBloodGroup] = useState(user?.blood_group || 'A+');
+  const [manualUnits, setManualUnits] = useState('1');
+  const [manualHospitalName, setManualHospitalName] = useState('');
 
-  // Record donation on blockchain mutation
-  const recordOnBlockchainMutation = useMutation({
-    mutationFn: async ({ donationId, txHash }: { donationId: number; txHash: string }) => {
-      const res = await apiRequest("POST", "/api/blockchain/record-donation", {
-        donationId,
-        txHash,
-      });
+  // Check if donation is already recorded on blockchain
+  const isRecorded = donation ? (donation.tx_hash || donation.blockchain_verified) : false;
+
+  // Mutation to record donation on blockchain
+  const recordDonationMutation = useMutation({
+    mutationFn: async () => {
+      const donationData = donation ? {
+        donationId: donation.id,
+        walletAddress,
+        bloodGroup: donation.blood_group,
+        units: donation.units,
+        hospitalName: donation.hospital_name
+      } : {
+        donationId: manualDonationId || 'direct-' + Date.now(),
+        walletAddress,
+        bloodGroup: manualBloodGroup,
+        units: manualUnits,
+        hospitalName: manualHospitalName
+      };
+      
+      const res = await apiRequest('POST', '/api/blockchain/record-donation', donationData);
       return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
-        title: "Donation recorded on blockchain",
-        description: "Your donation has been successfully recorded on the blockchain.",
+        title: 'Donation Recorded',
+        description: `Your donation has been successfully recorded on the blockchain. Transaction hash: ${data.transaction.transactionHash.substring(0, 10)}...`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/blood-donations"] });
+      // Close the dialog
+      setIsDialogOpen(false);
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['/api/blood-donations'] });
     },
     onError: (error: Error) => {
       toast({
-        title: "Blockchain recording failed",
+        title: 'Recording Failed',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
-    },
+    }
   });
 
-  // Mock blockchain transaction for demo purposes
-  const recordOnBlockchain = async () => {
-    if (!donation) {
-      toast({
-        title: "No donation to record",
-        description: "Please record a donation first before verifying on blockchain.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!window.ethereum) {
-      toast({
-        title: "MetaMask not installed",
-        description: "Please install MetaMask to verify donations on blockchain.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setIsRecording(true);
-    
-    try {
-      // Request account access
-      await window.ethereum.request({ method: "eth_requestAccounts" });
-
-      // In a real implementation, this would send a transaction to a smart contract
-      // For demo purposes, we'll generate a mock transaction hash
-      const mockTxHash = `0x${Array.from({ length: 64 }, () => 
-        "0123456789abcdef"[Math.floor(Math.random() * 16)]).join("")}`;
-
-      setTransactionHash(mockTxHash);
-      
-      // Record transaction hash in database
-      recordOnBlockchainMutation.mutate({
-        donationId: donation.id,
-        txHash: mockTxHash,
-      });
-    } catch (error: any) {
-      console.error("Error recording on blockchain:", error);
-      toast({
-        title: "Blockchain verification failed",
-        description: error.message || "Failed to record donation on blockchain",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRecording(false);
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    recordDonationMutation.mutate();
   };
 
-  if (!donation) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col items-center justify-center space-y-4 text-center p-4">
-            <ArrowRight className="h-12 w-12 text-muted-foreground" />
-            <div>
-              <h3 className="text-lg font-medium mb-2">Record Donation First</h3>
-              <p className="text-muted-foreground">
-                Please record your blood donation details first, then you'll be able to verify it on the blockchain.
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <Card>
-      <CardContent className="p-6">
-        <h3 className="text-lg font-medium mb-3">Blockchain Verification</h3>
-        
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <p className="text-sm text-muted-foreground">Donation ID:</p>
-              <p className="text-sm font-medium">{donation.id}</p>
-            </div>
-            <div className="flex justify-between">
-              <p className="text-sm text-muted-foreground">Blood Group:</p>
-              <p className="text-sm font-medium">{donation.bloodGroup}</p>
-            </div>
-            <div className="flex justify-between">
-              <p className="text-sm text-muted-foreground">Units:</p>
-              <p className="text-sm font-medium">{donation.units}</p>
-            </div>
-            <div className="flex justify-between">
-              <p className="text-sm text-muted-foreground">Date:</p>
-              <p className="text-sm font-medium">
-                {new Date().toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-          
-          <Separator />
-          
-          {!transactionHash && !donation.txHash && (
-            <div className="space-y-4">
-              <p className="text-sm">
-                Your donation has been recorded in our database. To ensure transparency and immutability,
-                you can now record this donation on the blockchain.
-              </p>
-              
-              <Button
-                onClick={recordOnBlockchain}
-                disabled={isRecording || recordOnBlockchainMutation.isPending}
-                className="w-full"
-              >
-                {isRecording || recordOnBlockchainMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Recording on Blockchain...
-                  </>
-                ) : (
-                  "Verify on Blockchain"
-                )}
-              </Button>
-            </div>
-          )}
-          
-          {(transactionHash || donation.txHash) && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
-                <p className="text-green-600 dark:text-green-400 font-medium">
-                  Recorded on Blockchain
-                </p>
+    <>
+      {donation && isRecorded ? (
+        <Alert>
+          <Check className="h-4 w-4" />
+          <AlertTitle>Recorded on Blockchain</AlertTitle>
+          <AlertDescription>
+            This donation is already recorded on the blockchain.
+            {donation.tx_hash && (
+              <p className="text-xs mt-1">Transaction hash: {donation.tx_hash.substring(0, 10)}...</p>
+            )}
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Record on Blockchain</CardTitle>
+            <CardDescription>
+              {donation 
+                ? "Make your donation transparent and secure by recording it on the blockchain" 
+                : "Directly record a blood donation on the blockchain for permanent verification"
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {donation ? (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Not Recorded</AlertTitle>
+                <AlertDescription>
+                  This donation has not been recorded on the blockchain yet.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="text-sm">
+                Enter your blood donation details to record them directly on the blockchain. 
+                This creates a permanent and transparent record of your contribution.
               </div>
-              
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Transaction Hash:</p>
-                <p className="text-xs font-mono break-all">
-                  {transactionHash || donation.txHash}
-                </p>
-              </div>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => window.open(`https://etherscan.io/tx/${transactionHash || donation.txHash}`, '_blank')}
-              >
-                View on Etherscan
-              </Button>
-            </div>
-          )}
-          
-          <Alert variant="outline" className="mt-4">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Blockchain Verification</AlertTitle>
-            <AlertDescription>
-              <p className="text-xs text-muted-foreground">
-                Recording your donation on the blockchain creates a permanent, tamper-proof record
-                that can be verified by hospitals and blood banks.
-              </p>
-            </AlertDescription>
-          </Alert>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
+            )}
+          </CardContent>
+          <CardFooter>
+            <Button 
+              onClick={() => setIsDialogOpen(true)}
+              disabled={!user || user.role !== 'donor'}
+            >
+              Record {donation ? 'This Donation' : 'New Donation'}
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
 
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Donation on Blockchain</DialogTitle>
+            <DialogDescription>
+              This will permanently record your blood donation on the blockchain for transparent tracking.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-4 py-4">
+              {donation ? (
+                // Show existing donation details 
+                <>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="donationId" className="text-right">
+                      Donation ID
+                    </Label>
+                    <Input
+                      id="donationId"
+                      value={donation.id}
+                      className="col-span-3"
+                      readOnly
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="walletAddress" className="text-right">
+                      Wallet Address
+                    </Label>
+                    <Input
+                      id="walletAddress"
+                      placeholder="0x..."
+                      value={walletAddress}
+                      onChange={(e) => setWalletAddress(e.target.value)}
+                      className="col-span-3"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="bloodGroup" className="text-right">
+                      Blood Group
+                    </Label>
+                    <Input
+                      id="bloodGroup"
+                      value={donation.blood_group}
+                      className="col-span-3"
+                      readOnly
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="units" className="text-right">
+                      Units
+                    </Label>
+                    <Input
+                      id="units"
+                      value={donation.units}
+                      className="col-span-3"
+                      readOnly
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="hospital" className="text-right">
+                      Hospital
+                    </Label>
+                    <Input
+                      id="hospital"
+                      value={donation.hospital_name}
+                      className="col-span-3"
+                      readOnly
+                    />
+                  </div>
+                </>
+              ) : (
+                // Show manual entry form for new donations
+                <>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="walletAddress" className="text-right">
+                      Wallet Address
+                    </Label>
+                    <Input
+                      id="walletAddress"
+                      placeholder="0x..."
+                      value={walletAddress}
+                      onChange={(e) => setWalletAddress(e.target.value)}
+                      className="col-span-3"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="bloodGroup" className="text-right">
+                      Blood Group
+                    </Label>
+                    <Input
+                      id="bloodGroup"
+                      value={manualBloodGroup}
+                      onChange={(e) => setManualBloodGroup(e.target.value)}
+                      className="col-span-3"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="units" className="text-right">
+                      Units
+                    </Label>
+                    <Input
+                      id="units"
+                      type="number"
+                      min="1"
+                      value={manualUnits}
+                      onChange={(e) => setManualUnits(e.target.value)}
+                      className="col-span-3"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="hospital" className="text-right">
+                      Hospital
+                    </Label>
+                    <Input
+                      id="hospital"
+                      value={manualHospitalName}
+                      onChange={(e) => setManualHospitalName(e.target.value)}
+                      className="col-span-3"
+                      required
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button 
+                type="submit"
+                disabled={recordDonationMutation.isPending}
+              >
+                {recordDonationMutation.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Record on Blockchain
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+export { DonationRecorder };
 export default DonationRecorder;

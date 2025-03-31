@@ -3,8 +3,6 @@ import { db } from "./db";
 import { eq, and, gte, desc, lte } from "drizzle-orm";
 import session from "express-session";
 import createMemoryStore from "memorystore";
-import connectPgSimple from "connect-pg-simple";
-import { neon } from "@neondatabase/serverless";
 import { 
   type User, 
   type InsertUser, 
@@ -21,7 +19,6 @@ import {
 } from "@shared/schema";
 
 const MemoryStore = createMemoryStore(session);
-const PgStore = connectPgSimple(session);
 
 export interface IStorage {
   // User operations
@@ -47,6 +44,7 @@ export interface IStorage {
   
   // Blood donation operations
   getBloodDonations(): Promise<BloodDonation[]>;
+  getBloodDonationById(id: number): Promise<BloodDonation | undefined>;
   getBloodDonationsByDonorId(donorId: number): Promise<BloodDonation[]>;
   createBloodDonation(donation: InsertBloodDonation): Promise<BloodDonation>;
   updateBloodDonation(id: number, donation: Partial<BloodDonation>): Promise<BloodDonation | undefined>;
@@ -69,19 +67,10 @@ export class DatabaseStorage implements IStorage {
   sessionStore: any; // Using any type to avoid TypeScript errors with SessionStore
 
   constructor() {
-    // Use Postgres for session storage in production
-    if (process.env.NODE_ENV === 'production') {
-      this.sessionStore = new PgStore({
-        conString: process.env.DATABASE_URL,
-        createTableIfMissing: true,
-        tableName: 'session'
-      });
-    } else {
-      // Use memory store for development
-      this.sessionStore = new MemoryStore({
-        checkPeriod: 86400000, // prune expired entries every 24h
-      });
-    }
+    // For simplicity, use memory store with Neon serverless
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // Clear expired sessions every 24h
+    });
   }
 
   // User operations
@@ -209,6 +198,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(bloodDonations)
       .orderBy(desc(bloodDonations.donation_date));
+  }
+
+  async getBloodDonationById(id: number): Promise<BloodDonation | undefined> {
+    const [donation] = await db
+      .select()
+      .from(bloodDonations)
+      .where(eq(bloodDonations.id, id));
+    return donation;
   }
 
   async getBloodDonationsByDonorId(donorId: number): Promise<BloodDonation[]> {
